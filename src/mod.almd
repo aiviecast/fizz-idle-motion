@@ -1,0 +1,63 @@
+// fizz_idle_motion — アバターの「生きてる感」を出す idle モーションの計算コア。
+//
+// 責務 (一行): 壁時計の秒数 t から、自動瞬き・呼吸・微揺れの値を決定論的に計算する。
+//
+// 設計の肝: **全部 t (壁時計秒) の純関数**にすることで、同じシーンを見る 2 タブ
+// (operator と broadcaster) が dt の累積に依存せず**完全に同じ曲線**を描く
+// (タブ間ロックステップ)。lipsync と同じく DSP は Almide で 1 回書き、native と
+// wasm の両バックエンドで使う:
+//   - native: 曲線の precompute / テスト
+//   - wasm:   ブラウザの requestAnimationFrame から毎フレーム呼び、値を VRM の
+//             ボーン/表情に適用する (適用 = Three.js の I/O は JS グルーが担当)
+//
+// 移植元: openaituber src/vrm/idle.ts。数式はそのまま。
+
+import math
+import float
+
+// 1 フレーム分の idle ポーズ。各値はそのまま VRM のボーン回転/表情に乗せる。
+type IdlePose = {
+  blink: Float,    // 目を閉じる量 [0,1] (expression "blink" に入れる)
+  breath: Float,   // 呼吸サイクル [0,1] (expression "breath" / chest 回転に使う)
+  head_x: Float,   // 頭の微揺れ pitch (rad)
+  head_y: Float,   // 頭の微揺れ yaw (rad)
+  body_z: Float,   // 体の微揺れ roll (rad)
+}
+
+let BLINK_PERIOD = 3.7     // 瞬きの平均間隔 (秒)
+let BLINK_DURATION = 0.13  // 1 回の瞬き (閉じて開く) の長さ
+
+// 整数キーから決定論的な 0..1 擬似乱数 (idle.ts の hash01 と同一)。
+// 全環境で同じ → 瞬きのタイミングがタブ間で一致する。
+local fn hash01(n: Float) -> Float = {
+  let x = math.sin(n * 12.9898 + 78.233) * 43758.5453
+  x - float.floor(x)
+}
+
+// 壁時計 t における瞬き量 [0,1]。状態を持たず t だけで決まる。
+fn blink(t: Float) -> Float = {
+  let period_idx = float.floor(t / BLINK_PERIOD)
+  let in_period = t - period_idx * BLINK_PERIOD
+  // 各周期はランダムな開始オフセットを引く (周期内に瞬きが収まるよう上限つき)。
+  let start = hash01(period_idx) * (BLINK_PERIOD - BLINK_DURATION - 0.2)
+  let within = in_period - start
+  if within < 0.0 or within > BLINK_DURATION then 0.0
+  else math.sin((within / BLINK_DURATION) * math.pi())
+}
+
+// 呼吸サイクル [0,1] (4 秒周期の正弦)。
+fn breath(t: Float) -> Float = math.sin((t / 4.0) * math.pi() * 2.0) * 0.5 + 0.5
+
+// 微揺れ (sway) 各成分。位相と周期をずらして「揺らぎ」に見せる。
+fn head_x(t: Float) -> Float = math.sin(t * 0.7) * 0.0025
+fn head_y(t: Float) -> Float = math.sin(t * 0.5 + 1.3) * 0.004
+fn body_z(t: Float) -> Float = math.sin(t * 0.3 + 0.7) * 0.0015
+
+// 壁時計 t における idle ポーズ一式。
+fn pose(t: Float) -> IdlePose = IdlePose {
+  blink: blink(t),
+  breath: breath(t),
+  head_x: head_x(t),
+  head_y: head_y(t),
+  body_z: body_z(t),
+}

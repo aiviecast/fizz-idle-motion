@@ -1,0 +1,4 @@
+[package]
+name = "fizz_idle_motion"
+version = "0.1.0"
+description = "Fizz idle motion — wall-clock-synced auto blink / breath / micro-sway curves for an avatar. One Almide core, native (test/precompute) + wasm (per-frame from the raf loop)."

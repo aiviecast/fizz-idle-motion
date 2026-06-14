@@ -1,0 +1,5 @@
+build/
+*.wasm
+*.cwasm
+fizz-idle-motion
+.almide/

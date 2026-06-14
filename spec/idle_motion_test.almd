@@ -1,0 +1,52 @@
+import self as idle
+
+local fn near(a: Float, b: Float) -> Bool = {
+  let d = a - b
+  if d < 0.0 then (0.0 - d) < 0.001 else d < 0.001
+}
+local fn in01(x: Float) -> Bool = x >= 0.0 and x <= 1.0
+
+test "breath is a 4s cycle in [0,1]" {
+  assert(near(idle.breath(0.0), 0.5))   // sin 0
+  assert(near(idle.breath(1.0), 1.0))   // sin(π/2)
+  assert(near(idle.breath(2.0), 0.5))   // sin(π)
+  assert(near(idle.breath(3.0), 0.0))   // sin(3π/2)
+  assert(in01(idle.breath(1.7)))
+  assert(in01(idle.breath(123.4)))
+}
+
+test "blink stays within [0,1] at arbitrary times" {
+  assert(in01(idle.blink(0.0)))
+  assert(in01(idle.blink(1.0)))
+  assert(in01(idle.blink(2.345)))
+  assert(in01(idle.blink(37.0)))
+  assert(in01(idle.blink(500.5)))
+}
+
+test "blink actually fires somewhere within a period (not always 0)" {
+  // 1 周期 (3.7s) を細かく刻めば、必ずどこかで瞬き (>0.5) が立つ。
+  var i = 0
+  var peak = 0.0
+  while i < 370 {
+    let v = idle.blink(int.to_float(i) / 100.0)
+    if v > peak then peak = v
+    i = i + 1
+  }
+  assert(peak > 0.5)
+}
+
+test "sway is tiny, zero at t=0 for head_x, and bounded by its amplitude" {
+  assert(near(idle.head_x(0.0), 0.0))   // sin 0
+  assert(idle.head_x(5.0) <= 0.0025 and idle.head_x(5.0) >= -0.0025)
+  assert(idle.head_y(5.0) <= 0.004 and idle.head_y(5.0) >= -0.004)
+  assert(idle.body_z(5.0) <= 0.0015 and idle.body_z(5.0) >= -0.0015)
+}
+
+test "pose components equal the individual functions (deterministic, stateless)" {
+  let p = idle.pose(2.5)
+  assert(near(p.blink, idle.blink(2.5)))
+  assert(near(p.breath, idle.breath(2.5)))
+  assert(near(p.head_x, idle.head_x(2.5)))
+  assert(near(p.head_y, idle.head_y(2.5)))
+  assert(near(p.body_z, idle.body_z(2.5)))
+}

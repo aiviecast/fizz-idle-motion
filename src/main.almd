@@ -1,0 +1,43 @@
+// CLI エントリポイント (native) — idle ポーズ曲線の precompute / 確認。
+//
+// FIZZ_IDLE_SECONDS 秒ぶんを FIZZ_IDLE_FPS で刻んで、各フレームの idle ポーズを
+// NDJSON で出力する。曲線の目視確認や、壁時計同期のオフライン検証に使う。
+//
+// 出力: 1 フレーム 1 行
+//   {"t":..,"blink":..,"breath":..,"head_x":..,"head_y":..,"body_z":..}
+//
+// 同じ DSP コア (mod.almd) が wasm/raf 側でも走る。
+
+import self as idle
+import env
+import json
+import value
+import string
+import int
+
+effect fn main() -> Unit = {
+  let secs = match int.parse(string.trim(env.get("FIZZ_IDLE_SECONDS") ?? "")) {
+    ok(n)  => n,
+    err(_) => 8,
+  }
+  let fps = match int.parse(string.trim(env.get("FIZZ_IDLE_FPS") ?? "")) {
+    ok(n)  => if n < 1 then 1 else n,
+    err(_) => 30,
+  }
+  let total = secs * fps
+  var i = 0
+  while i < total {
+    let t = int.to_float(i) / int.to_float(fps)
+    // mod の record (IdlePose) を main 実行ファイルへ跨いで返すと codegen が
+    // 型を解決できないことがあるため、個別の純関数を直接呼ぶ。
+    println(json.stringify(value.object([
+      ("t", value.float(t)),
+      ("blink", value.float(idle.blink(t))),
+      ("breath", value.float(idle.breath(t))),
+      ("head_x", value.float(idle.head_x(t))),
+      ("head_y", value.float(idle.head_y(t))),
+      ("body_z", value.float(idle.body_z(t))),
+    ])))
+    i = i + 1
+  }
+}

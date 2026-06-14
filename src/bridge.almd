@@ -1,0 +1,39 @@
+// wasm エントリ — ブラウザの requestAnimationFrame から毎フレーム呼ぶ。
+//
+// DSP 本体は mod.almd (純 Almide、native と共有)。各値は壁時計秒 t の純関数なので、
+// JS は毎フレーム `Date.now()/1000` を渡して値を受け取り、VRM のボーン/表情に乗せる
+// (適用 = Three.js の I/O は JS が担当)。
+//
+// 全エクスポートは (Float) -> Float = JS から普通の number で呼べる (RawPtr も
+// buffer も不要)。idle 値は独立なので 1 フレーム 5 呼び出しでも軽い。
+//
+// codegen の tree-shaking 対策で main から全 export を参照してルート化している
+// (@export(wasm) はルート扱いされないため。almide#440)。
+//
+// ビルド: almide build src/bridge.almd --target wasm -o build/idle.wasm
+
+import self as idle
+
+@export(wasm, "idle_blink")
+fn idle_blink(t: Float) -> Float = idle.blink(t)
+
+@export(wasm, "idle_breath")
+fn idle_breath(t: Float) -> Float = idle.breath(t)
+
+@export(wasm, "idle_head_x")
+fn idle_head_x(t: Float) -> Float = idle.head_x(t)
+
+@export(wasm, "idle_head_y")
+fn idle_head_y(t: Float) -> Float = idle.head_y(t)
+
+@export(wasm, "idle_body_z")
+fn idle_body_z(t: Float) -> Float = idle.body_z(t)
+
+effect fn main() -> Unit = {
+  let _a = idle_blink(0.0)
+  let _b = idle_breath(0.0)
+  let _c = idle_head_x(0.0)
+  let _d = idle_head_y(0.0)
+  let _e = idle_body_z(0.0)
+  ()
+}
