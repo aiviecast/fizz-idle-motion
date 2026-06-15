@@ -26,10 +26,10 @@ effect fn main() -> Unit = {
   }
   let total = secs * fps
   var i = 0
+  // ループ内で record (IdlePose) を let 束縛すると almide#686 で E0425 (released 未修正)。
+  // pose() を束縛せず個別のスカラー関数を直接呼ぶことで回避する。
   while i < total {
     let t = int.to_float(i) / int.to_float(fps)
-    // mod の record (IdlePose) を main 実行ファイルへ跨いで返すと codegen が
-    // 型を解決できないことがあるため、個別の純関数を直接呼ぶ。
     println(json.stringify(value.object([
       ("t", value.float(t)),
       ("blink", value.float(idle.blink(t))),
