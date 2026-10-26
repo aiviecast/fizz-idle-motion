@@ -28,7 +28,7 @@ test "blink actually fires somewhere within a period (not always 0)" {
   var i = 0
   var peak = 0.0
   while i < 370 {
-    let v = idle.blink(int.to_float(i) / 100.0)
+    let v = idle.blink(float.from(i) / 100.0)
     if v > peak then peak = v
     i = i + 1
   }
